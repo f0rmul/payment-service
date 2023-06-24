@@ -13,6 +13,7 @@ create table if not exists products
 (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name varchar(255) NOT NULL UNIQUE
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS product_idx ON products (name);
 

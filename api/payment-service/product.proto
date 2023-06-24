@@ -7,7 +7,9 @@ option go_package = "github.com/f0rmul/payment-service/pkg/payment-service;payme
 message Product {
     string id = 1;
     string name =2;
+    int64 createdAt = 4;
 }
+
 message CreateProductRequest {
     string name = 1;
 }
