@@ -1,4 +1,4 @@
-package product
+package account
 
 import (
 	"context"
@@ -11,21 +11,21 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (s *ProductServiceAPI) CreateProduct(ctx context.Context, req *pb.CreateProductRequest) (*pb.CreateProductResponse, error) {
+func (s *AccountServiceAPI) CreateProduct(ctx context.Context, req *pb.CreateAccountRequest) (*pb.CreateAccountResponse, error) {
 
-	productID, err := s.productUsecase.CreateProduct(ctx, &entity.Product{
-		Name: req.GetName(),
+	accountID, err := s.accountrUsecase.CreateAccount(ctx, &entity.Account{
+		OwnerID: req.GetOwnerId(),
 	})
 
 	if err != nil {
-		s.logger.Errorf("productUsecase.CreateProduct(): %v", err)
-		if errors.Is(err, domain.ErrProductAlreadyExists) {
+		s.logger.Errorf("accountrUsecase.CreateAccount(): %v", err)
+		if errors.Is(err, domain.ErrAccountAlreadyExists) {
 			return nil, status.Errorf(codes.AlreadyExists, err.Error())
 		}
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	return &pb.CreateProductResponse{
-		Id: productID,
+	return &pb.CreateAccountResponse{
+		Id: accountID,
 	}, nil
 }

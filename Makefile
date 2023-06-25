@@ -30,6 +30,7 @@ generate:
 	mkdir -p pkg/payment-service
 	protoc --go_out=./pkg/payment-service --go_opt=paths=source_relative \
 	       --go-grpc_out=./pkg/payment-service --go-grpc_opt=paths=source_relative \
-		   api/payment-service/product.proto  
+		   api/payment-service/*
+
 	mv pkg/payment-service/api/payment-service/* pkg/payment-service
 	rm -rf pkg/payment-service/api

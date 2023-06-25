@@ -9,8 +9,8 @@ import (
 )
 
 type ProductUsecase interface {
-	CreateProduct(context.Context, entity.Product) (string, error)
-	GetProductByID(context.Context, string) (entity.Product, error)
+	CreateProduct(context.Context, *entity.Product) (string, error)
+	GetProductByID(context.Context, string) (*entity.Product, error)
 }
 
 type ProductServiceAPI struct {
