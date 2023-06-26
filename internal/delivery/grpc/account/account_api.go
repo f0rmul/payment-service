@@ -13,11 +13,11 @@ type AccountUsecase interface {
 }
 
 type AccountServiceAPI struct {
-	accountrUsecase AccountUsecase
-	logger          logger.Logger
+	accountUsecase AccountUsecase
+	logger         logger.Logger
 	pb.UnimplementedAccountServiceServer
 }
 
 func NewAccountServiceAPI(usecase AccountUsecase, logger logger.Logger) *AccountServiceAPI {
-	return &AccountServiceAPI{accountrUsecase: usecase, logger: logger}
+	return &AccountServiceAPI{accountUsecase: usecase, logger: logger}
 }

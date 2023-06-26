@@ -11,9 +11,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (s *AccountServiceAPI) CreateProduct(ctx context.Context, req *pb.CreateAccountRequest) (*pb.CreateAccountResponse, error) {
-
-	accountID, err := s.accountrUsecase.CreateAccount(ctx, &entity.Account{
+func (s *AccountServiceAPI) CreateAccount(ctx context.Context, req *pb.CreateAccountRequest) (*pb.CreateAccountResponse, error) {
+	accountID, err := s.accountUsecase.CreateAccount(ctx, &entity.Account{
 		OwnerID: req.GetOwnerId(),
 	})
 
