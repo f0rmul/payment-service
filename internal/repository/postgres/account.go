@@ -34,7 +34,7 @@ func (r *AccountRepository) CreateAccount(ctx context.Context, acc *entity.Accou
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, repository.ErrAccountExists
+			return nil, repository.ErrAlreadyExists
 		}
 		return nil, errors.Wrap(err, "account.db.QueryRowxContex()")
 	}
@@ -49,11 +49,11 @@ func (r *AccountRepository) GetByID(ctx context.Context, accountID string) (*ent
 
 	account := new(entity.Account)
 
-	err := r.db.Get(account, query, args...)
+	err := r.db.GetContext(ctx, account, query, args...)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, repository.ErrAccountNotFound
+			return nil, repository.ErrNotFound
 		}
 		return nil, errors.Wrap(err, "account.db.Get()")
 	}
@@ -67,7 +67,7 @@ func (r *AccountRepository) GetBalanceByID(ctx context.Context, accountID string
 		Where(sq.Eq{"id": accountID}).ToSql()
 
 	var balance int64
-	err := r.db.Get(&balance, query, args...)
+	err := r.db.GetContext(ctx, &balance, query, args...)
 
 	if err != nil {
 		return 0, errors.Wrap(err, "account.db.Get()")
@@ -109,7 +109,7 @@ func (r *AccountRepository) Withdraw(ctx context.Context, accountID string, amou
 
 	var balance int64
 
-	err = tx.Get(&balance, enoughManyQuery, args...)
+	err = tx.GetContext(ctx, &balance, enoughManyQuery, args...)
 
 	if err != nil {
 		return errors.Wrap(err, "account.tx.Get()")
@@ -154,7 +154,7 @@ func (r *AccountRepository) Transfer(ctx context.Context, accountFrom, accountTo
 
 	var balance int64
 
-	err = tx.Get(&balance, enoughManyFromQuery, args...)
+	err = tx.GetContext(ctx, &balance, enoughManyFromQuery, args...)
 
 	if err != nil {
 		return errors.Wrap(err, "account.tx.Get()")
