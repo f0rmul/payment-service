@@ -5,17 +5,20 @@ import (
 	"database/sql"
 
 	sq "github.com/Masterminds/squirrel"
+	trmsqlx "github.com/avito-tech/go-transaction-manager/sqlx"
+	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
+
 	"github.com/f0rmul/payment-service/internal/domain/entity"
 	"github.com/f0rmul/payment-service/internal/repository"
 	"github.com/f0rmul/payment-service/pkg/postgres"
-	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
 )
 
 const accountTable = "accounts"
 
 type AccountRepository struct {
-	db *sqlx.DB
+	db     *sqlx.DB
+	getter *trmsqlx.CtxGetter
 }
 
 func NewAccountRepository(db *sqlx.DB) *AccountRepository {
@@ -30,7 +33,7 @@ func (r *AccountRepository) CreateAccount(ctx context.Context, acc *entity.Accou
 
 	createdAccount := new(entity.Account)
 
-	err := r.db.QueryRowxContext(ctx, query, args...).StructScan(createdAccount)
+	err := r.getter.DefaultTrOrDB(ctx, r.db).QueryRowxContext(ctx, query, args...).StructScan(createdAccount)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -49,7 +52,7 @@ func (r *AccountRepository) GetByID(ctx context.Context, accountID string) (*ent
 
 	account := new(entity.Account)
 
-	err := r.db.GetContext(ctx, account, query, args...)
+	err := r.getter.DefaultTrOrDB(ctx, r.db).GetContext(ctx, account, query, args...)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -67,7 +70,7 @@ func (r *AccountRepository) GetBalanceByID(ctx context.Context, accountID string
 		Where(sq.Eq{"id": accountID}).ToSql()
 
 	var balance int64
-	err := r.db.GetContext(ctx, &balance, query, args...)
+	err := r.getter.DefaultTrOrDB(ctx, r.db).GetContext(ctx, &balance, query, args...)
 
 	if err != nil {
 		return 0, errors.Wrap(err, "account.db.Get()")
@@ -83,7 +86,7 @@ func (r *AccountRepository) Deposit(ctx context.Context, accountID string, amoun
 		Set("balance", sq.Expr("balance + ?", amount)).
 		Where(sq.Eq{"id": accountID}).ToSql()
 
-	_, err := r.db.ExecContext(ctx, query, args...)
+	_, err := r.getter.DefaultTrOrDB(ctx, r.db).ExecContext(ctx, query, args...)
 
 	if err != nil {
 		return errors.Wrap(err, "account.db.ExecContext()")

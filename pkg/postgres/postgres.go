@@ -21,16 +21,10 @@ type Config interface {
 var StatementBuilder = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 
 func NewConn(ctx context.Context, cfg Config) (*sqlx.DB, error) {
-	db, err := sqlx.Open("pgx", cfg.GetDSN())
+	db, err := sqlx.ConnectContext(ctx, "pgx", cfg.GetDSN())
 
 	if err != nil {
 		return nil, errors.Wrap(err, "sqlx.Open()")
-	}
-
-	err = db.PingContext(ctx)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "db.PingContext()")
 	}
 
 	db.SetMaxOpenConns(cfg.GetMaxOpenConns())
