@@ -1,10 +1,12 @@
 package entity
 
-import "time"
+import (
+	"time"
+)
 
 type Account struct {
-	ID        string    `db:"id"`
-	OwnerID   string    `db:"owner_id"`
-	Balance   int64     `db:"balance"`
-	CreatedAt time.Time `db:"created_at"`
+	ID        string
+	OwnerID   string
+	Balance   int64
+	CreatedAt time.Time
 }

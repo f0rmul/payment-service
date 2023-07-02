@@ -20,7 +20,11 @@ type Config interface {
 
 var StatementBuilder = squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 
-func NewConn(ctx context.Context, cfg Config) (*sqlx.DB, error) {
+type PostgresDatabase struct {
+	*sqlx.DB
+}
+
+func NewConn(ctx context.Context, cfg Config) (*PostgresDatabase, error) {
 	db, err := sqlx.ConnectContext(ctx, "pgx", cfg.GetDSN())
 
 	if err != nil {
@@ -32,5 +36,5 @@ func NewConn(ctx context.Context, cfg Config) (*sqlx.DB, error) {
 	db.SetConnMaxIdleTime(cfg.GetConnMaxIdleTime())
 	db.SetConnMaxLifetime(cfg.GetConnMaxIdleLifeTime())
 
-	return db, nil
+	return &PostgresDatabase{db}, nil
 }

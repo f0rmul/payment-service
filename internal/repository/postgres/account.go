@@ -21,8 +21,8 @@ type AccountRepository struct {
 	getter *trmsqlx.CtxGetter
 }
 
-func NewAccountRepository(db *sqlx.DB) *AccountRepository {
-	return &AccountRepository{db: db}
+func NewAccountRepository(db *sqlx.DB, getter *trmsqlx.CtxGetter) *AccountRepository {
+	return &AccountRepository{db: db, getter: getter}
 }
 
 func (r *AccountRepository) CreateAccount(ctx context.Context, acc *entity.Account) (*entity.Account, error) {
@@ -31,9 +31,10 @@ func (r *AccountRepository) CreateAccount(ctx context.Context, acc *entity.Accou
 		Columns("owner_id").
 		Values(acc.OwnerID).Suffix("RETURNING *").ToSql()
 
-	createdAccount := new(entity.Account)
+	createdAccount := new(repository.Account)
 
-	err := r.getter.DefaultTrOrDB(ctx, r.db).QueryRowxContext(ctx, query, args...).StructScan(createdAccount)
+	err := r.getter.DefaultTrOrDB(ctx, r.db).
+		QueryRowxContext(ctx, query, args...).StructScan(createdAccount)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -41,7 +42,7 @@ func (r *AccountRepository) CreateAccount(ctx context.Context, acc *entity.Accou
 		}
 		return nil, errors.Wrap(err, "account.db.QueryRowxContex()")
 	}
-	return createdAccount, nil
+	return createdAccount.ToEntity(), nil
 }
 
 func (r *AccountRepository) GetByID(ctx context.Context, accountID string) (*entity.Account, error) {
@@ -50,18 +51,19 @@ func (r *AccountRepository) GetByID(ctx context.Context, accountID string) (*ent
 		Select("*").
 		From(accountTable).Where(sq.Eq{"id": accountID}).ToSql()
 
-	account := new(entity.Account)
+	account := new(repository.Account)
 
-	err := r.getter.DefaultTrOrDB(ctx, r.db).GetContext(ctx, account, query, args...)
+	err := r.getter.DefaultTrOrDB(ctx, r.db).
+		GetContext(ctx, account, query, args...)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repository.ErrNotFound
 		}
-		return nil, errors.Wrap(err, "account.db.Get()")
+		return nil, errors.Wrap(err, "account.db.GetContext()")
 	}
 
-	return account, nil
+	return account.ToEntity(), nil
 }
 
 func (r *AccountRepository) GetBalanceByID(ctx context.Context, accountID string) (int64, error) {
@@ -70,7 +72,8 @@ func (r *AccountRepository) GetBalanceByID(ctx context.Context, accountID string
 		Where(sq.Eq{"id": accountID}).ToSql()
 
 	var balance int64
-	err := r.getter.DefaultTrOrDB(ctx, r.db).GetContext(ctx, &balance, query, args...)
+	err := r.getter.DefaultTrOrDB(ctx, r.db).
+		GetContext(ctx, &balance, query, args...)
 
 	if err != nil {
 		return 0, errors.Wrap(err, "account.db.Get()")
@@ -86,7 +89,8 @@ func (r *AccountRepository) Deposit(ctx context.Context, accountID string, amoun
 		Set("balance", sq.Expr("balance + ?", amount)).
 		Where(sq.Eq{"id": accountID}).ToSql()
 
-	_, err := r.getter.DefaultTrOrDB(ctx, r.db).ExecContext(ctx, query, args...)
+	_, err := r.getter.DefaultTrOrDB(ctx, r.db).
+		ExecContext(ctx, query, args...)
 
 	if err != nil {
 		return errors.Wrap(err, "account.db.ExecContext()")
@@ -96,101 +100,16 @@ func (r *AccountRepository) Deposit(ctx context.Context, accountID string, amoun
 
 func (r *AccountRepository) Withdraw(ctx context.Context, accountID string, amount int64) error {
 
-	tx, err := r.db.BeginTxx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelRepeatableRead,
-	})
-
-	if err != nil {
-		return errors.Wrap(err, "account.db.BeginTxx()")
-	}
-
-	defer func() { _ = tx.Rollback() }()
-
-	enoughManyQuery, args, _ := postgres.StatementBuilder.
-		Select("balance").From(accountTable).
-		Where(sq.Eq{"id": accountID}).ToSql()
-
-	var balance int64
-
-	err = tx.GetContext(ctx, &balance, enoughManyQuery, args...)
-
-	if err != nil {
-		return errors.Wrap(err, "account.tx.Get()")
-	}
-
-	if balance < amount {
-		return repository.ErrNotEnoughMany
-	}
+	tx := r.getter.DefaultTrOrDB(ctx, r.db)
 
 	updateBalanceQuery, args, _ := postgres.StatementBuilder.
 		Update(accountTable).Set("balance", sq.Expr("balance - ?", amount)).
 		Where(sq.Eq{"id": accountID}).ToSql()
 
-	_, err = tx.ExecContext(ctx, updateBalanceQuery, args...)
+	_, err := tx.ExecContext(ctx, updateBalanceQuery, args...)
 
 	if err != nil {
 		return errors.Wrap(err, "account.tx.ExecContext()")
-	}
-
-	err = tx.Commit()
-
-	if err != nil {
-		return errors.Wrap(err, "account.tx.Commit()")
-	}
-	return nil
-}
-
-func (r *AccountRepository) Transfer(ctx context.Context, accountFrom, accountTo string, amount int64) error {
-	tx, err := r.db.BeginTxx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelRepeatableRead,
-	})
-
-	if err != nil {
-		return errors.Wrap(err, "account.db.BeginTxx()")
-	}
-
-	defer func() { _ = tx.Rollback() }()
-
-	enoughManyFromQuery, args, _ := postgres.StatementBuilder.
-		Select("balance").From(accountTable).
-		Where(sq.Eq{"id": accountFrom}).ToSql()
-
-	var balance int64
-
-	err = tx.GetContext(ctx, &balance, enoughManyFromQuery, args...)
-
-	if err != nil {
-		return errors.Wrap(err, "account.tx.Get()")
-	}
-
-	if balance < amount {
-		return repository.ErrNotEnoughMany
-	}
-
-	updateBalanceFromQuery, args, _ := postgres.StatementBuilder.
-		Update(accountTable).Set("balance", sq.Expr("balance - ?", amount)).
-		Where(sq.Eq{"id": accountFrom}).ToSql()
-
-	_, err = tx.ExecContext(ctx, updateBalanceFromQuery, args...)
-
-	if err != nil {
-		return errors.Wrap(err, "account.tx.ExecContext()")
-	}
-
-	updateBalanceToQuery, args, _ := postgres.StatementBuilder.
-		Update(accountTable).Set("balance", sq.Expr("balance + ?", amount)).
-		Where(sq.Eq{"id": accountTo}).ToSql()
-
-	_, err = tx.ExecContext(ctx, updateBalanceToQuery, args...)
-
-	if err != nil {
-		return errors.Wrap(err, "account.tx.ExecContext()")
-	}
-
-	err = tx.Commit()
-
-	if err != nil {
-		return errors.Wrap(err, "account.tx.Commit()")
 	}
 	return nil
 }
